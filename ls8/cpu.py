@@ -7,7 +7,21 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.ram = [0] * 256
+        self.pc = 0
+        self.running = True
+        
+    def ram_read(self, address):
+        return self.ram[address]
+
+    def ram_write(self, address, val):
+        self.ram[address] = val
+    
+    def _print(self, address):
+        print(f"_printing : {self.ram_read(address)}")
+    
+    def halt(self):
+        self.running = False
 
     def load(self):
         """Load a program into memory."""
@@ -62,4 +76,43 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        self.instruction_set = {
+            0b10000010: {"length": 3, "func": self.ram_write},
+            0b01000111: {"length": 2, "func": self._print},
+            0b00000001: {"length": 1, "func": self.halt}
+        }
+
+        while self.running:
+            self.load()
+            if self.pc >= 252: # THIS NEED TO BE FIXED! (STACK< PROLLY)
+                print("max depth exceeded")
+                self.halt()
+            IR = self.ram[self.pc]
+            increment = 1
+            operand_a = None
+            operand_b = None
+            
+
+            todo = self.instruction_set.get(IR, None)
+
+            if not todo: 
+                print(f"Unknown Instruction: {IR}")
+            else:
+                if todo["length"] == 3:
+                    operand_a = self.ram[self.pc+1]
+                    operand_b = self.ram[self.pc+2]
+                    increment = 3
+                    todo["func"](operand_a, operand_b)
+                    
+
+                elif todo["length"] == 2:
+                    operand_a = self.ram[self.pc+1]
+                    increment = 2
+                    todo["func"](operand_a)
+                else:
+                    todo["func"]()
+            
+            self.pc += increment
+
+test = CPU()
+test.run()
