@@ -7,9 +7,11 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        self.ram = [0] * 256
-        self.pc = 0
+        self.ram = [0] * 256 #Memory
+        self.pc = 0 #Program Counter
         self.running = True
+        self.reg = [0] * 8 #Registera
+        self.SP = 0xF4 #Stack pointer
         
     def ram_read(self, address):
         return self.ram[address]
@@ -17,40 +19,52 @@ class CPU:
     def ram_write(self, address, val):
         self.ram[address] = val
     
+    def ldi(self, address, val):
+        self.reg[address] = val
+
     def _print(self, address):
-        print(f"_printing : {self.ram_read(address)}")
+        print(f"_printing : {self.reg[address]}")
     
     def halt(self):
         self.running = False
 
-    def load(self):
+    def mul(self, reg_a, reg_b):
+        return self.alu("MUL", reg_a, reg_b)
+
+    def push(self, reg_a):
+        self.SP -= 1
+        self.ram[self.SP] = self.reg[reg_a]
+
+    def pop(self, reg_a):
+        self.reg[reg_a] = self.ram[self.SP]
+        self.SP += 1
+
+    def load(self, program_filename):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
+        with open(program_filename) as f:
+            for line in f:
+                line = line.split('#')
+                line = line[0].strip()
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+                if line == '':
+                    continue
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                self.ram[address] = int(line, 2)
 
+                address += 1
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]        
+        elif op =="MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -77,18 +91,22 @@ class CPU:
     def run(self):
         """Run the CPU."""
         self.instruction_set = {
-            0b10000010: {"length": 3, "func": self.ram_write},
+            0b10000010: {"length": 3, "func": self.ldi},
             0b01000111: {"length": 2, "func": self._print},
-            0b00000001: {"length": 1, "func": self.halt}
+            0b00000001: {"length": 1, "func": self.halt},
+            0b10100010: {"length": 3, "func": self.mul},
+            0b01000101: {"length": 2, "func": self.push},
+            0b01000110: {"length": 2, "func": self.pop},
         }
 
         while self.running:
-            self.load()
+            
             if self.pc >= 252: # THIS NEED TO BE FIXED! (STACK< PROLLY)
                 print("max depth exceeded")
                 self.halt()
             IR = self.ram[self.pc]
             increment = 1
+            inst_len = ((IR & 0b11000000) >> 6) + 1
             operand_a = None
             operand_b = None
             
@@ -114,5 +132,3 @@ class CPU:
             
             self.pc += increment
 
-test = CPU()
-test.run()
