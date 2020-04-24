@@ -1,6 +1,7 @@
 """CPU functionality."""
 
 import sys
+from time import sleep
 
 
 class CPU:
@@ -16,7 +17,11 @@ class CPU:
         self.reg[self.SP] = 0xF4 #Stack pointer
         self.fl = None
         self.IR = None
-        
+        self.E = 0
+        self.L = 0
+        self.G = 0
+
+
     def ram_read(self, address):
         return self.ram[address]
 
@@ -57,8 +62,25 @@ class CPU:
         self.SP -= 1
         self.ram[self.reg[self.SP]] = self.fl
         self.pc = self.reg[reg_a]
+    
+    def CMP(self, reg_a, reg_b):
+        self.alu('CMP', reg_a, reg_b)
 
+    def jeq(self, reg_a):
+        if self.E == 1:
+            self.jmp(reg_a)
+        else: 
+            self.pc += 2
 
+    def jne(self, reg_a):
+        if self.E == 0:
+            self.jmp(reg_a)
+        else:
+            self.pc += 2
+
+    def jmp(self, reg_a):
+        self.pc = self.reg[reg_a]
+    
     def ret(self):
         self.pc = self.ram[self.reg[self.SP]]
         self.reg[self.SP] += 1
@@ -91,8 +113,27 @@ class CPU:
             self.reg[reg_a] -= self.reg[reg_b]        
         elif op =="MUL":
             self.reg[reg_a] *= self.reg[reg_b]
+        elif op == 'CMP':
+            if self.reg[reg_a] > self.reg[reg_b]:
+                self.G = 1
+                self.E = 0
+                self.L = 0
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.L = 1
+                self.G = 0
+                self.E = 0
+            else:
+                self.E = 1
+                self.L = 0
+                self.G = 0
         else:
             raise Exception("Unsupported ALU operation")
+        self.pc += 3
+        
+    def deb_print(self, todo, operand_a, operand_b):
+        # print(f"Executing: {todo['name']}({operand_a}, {operand_b})")
+        # sleep(.2)
+        return
 
     def trace(self):
         """
@@ -126,6 +167,10 @@ class CPU:
             0b01000110: {"length": 2, "func": self.pop, "name": 'pop'},
             0b01010000: {"length": 2, "func": self.call, "name": 'call'},
             0b00010001: {"length": 1, "func": self.ret, "name": 'ret'},
+            0b10100111: {"length": 3, "func": self.CMP, "name": 'cmp'},
+            0b01010101: {"length": 2, "func": self.jeq, "name": 'jeq'},
+            0b01010110: {"length": 2, "func": self.jne, "name": 'jne'},
+            0b01010100: {"length": 2, "func": self.jmp, "name": 'jmp'},
         }
 
         while self.running:
@@ -144,20 +189,24 @@ class CPU:
             todo = self.instruction_set.get(self.IR, None)
 
             if not todo: 
+                self.deb_print(todo, operand_a, operand_b)
                 print(f"Unknown Instruction: {self.IR}")
             else:
                 if todo["length"] == 3:
                     operand_a = self.ram[self.pc+1]
                     operand_b = self.ram[self.pc+2]
                     increment = 3
+                    self.deb_print(todo, operand_a,operand_b)
                     todo["func"](operand_a, operand_b)
                     
 
                 elif todo["length"] == 2:
                     operand_a = self.ram[self.pc+1]
                     increment = 2
+                    self.deb_print(todo, operand_a,operand_b)
                     todo["func"](operand_a)
                 else:
+                    self.deb_print(todo, operand_a,operand_b)
                     todo["func"]()
             
 
